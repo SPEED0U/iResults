@@ -2,26 +2,25 @@ const { getDb } = require('../services/database');
 const { buildSuccessEmbed, buildErrorEmbed } = require('../utils/embedBuilder');
 
 module.exports = {
-  name: 'trackmember',
-  description: 'Track race results for a specific member ID.',
+  name: 'untrackmember',
+  description: 'Stop tracking race results for a specific member ID.',
   options: [
     {
       name: 'customer_id',
-      description: 'The iRacing customer ID of the player.',
+      description: 'The iRacing customer ID of the player to untrack.',
       type: 3,
       required: true,
     },
   ],
   async execute(interaction) {
     const guildId = interaction.guildId;
-    const channelId = interaction.channelId;
     const customer_id = interaction.options.getString('customer_id');
     const db = getDb();
 
     if (!customer_id) {
       const embed = buildErrorEmbed(
         'Invalid Input',
-        'Please provide a valid member ID to track.',
+        'Please provide a valid member ID to untrack.',
         interaction.client
       );
       await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -29,7 +28,7 @@ module.exports = {
     }
 
     try {
-      // Check if member is already tracked in this guild
+      // Check if member is being tracked
       const existingEntry = await new Promise((resolve, reject) => {
         db.get(
           'SELECT * FROM tracked_data WHERE guild_id = ? AND driver_id = ?',
@@ -41,21 +40,21 @@ module.exports = {
         );
       });
 
-      if (existingEntry) {
+      if (!existingEntry) {
         const embed = buildErrorEmbed(
-          'Already Tracked',
-          `Member ID \`${customer_id}\` is already being tracked in this server.`,
+          'Not Tracked',
+          `Member ID \`${customer_id}\` is not being tracked in this server.`,
           interaction.client
         );
         await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
 
-      // Add new tracking entry
+      // Remove tracking entry
       await new Promise((resolve, reject) => {
         db.run(
-          `INSERT INTO tracked_data (guild_id, channel_id, driver_id) VALUES (?, ?, ?)`,
-          [guildId, channelId, customer_id],
+          'DELETE FROM tracked_data WHERE guild_id = ? AND driver_id = ?',
+          [guildId, customer_id],
           (err) => {
             if (err) reject(err);
             else resolve();
@@ -64,16 +63,16 @@ module.exports = {
       });
 
       const embed = buildSuccessEmbed(
-        'Member Tracked',
-        `Successfully started tracking member ID \`${customer_id}\`.\nRace results will be automatically posted in this channel.`,
+        'Member Untracked',
+        `Successfully stopped tracking member ID \`${customer_id}\`.\nRace results will no longer be posted for this member.`,
         interaction.client
       );
       await interaction.reply({ embeds: [embed] });
     } catch (error) {
-      console.error('Error saving tracking data:', error);
+      console.error('Error removing tracking data:', error);
       const embed = buildErrorEmbed(
         'Error',
-        'Failed to add tracking for the member ID.',
+        'Failed to remove tracking for the member ID.',
         interaction.client
       );
       await interaction.reply({ embeds: [embed], ephemeral: true });
