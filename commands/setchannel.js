@@ -1,3 +1,4 @@
+const { PermissionsBitField } = require('discord.js');
 const { getDb } = require('../services/database');
 
 module.exports = {
@@ -12,6 +13,15 @@ module.exports = {
     },
   ],
   async execute(interaction) {
+    // Check if the user has administrator permissions
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      await interaction.reply({
+        content: 'You need Administrator permissions to use this command.',
+        ephemeral: true
+      });
+      return;
+    }
+
     const guildId = interaction.guildId;
     const channel = interaction.options.getChannel('channel');
     const db = getDb();
@@ -29,10 +39,16 @@ module.exports = {
         );
       });
 
-      await interaction.reply(`${channel} is now set for automatic publication of race results.`);
+      await interaction.reply({
+        content: `${channel} is now set for automatic publication of race results.`,
+        ephemeral: true
+      });
     } catch (error) {
       console.error('Error saving channel settings:', error);
-      await interaction.reply('Failed to save channel settings.');
+      await interaction.reply({
+        content: 'Failed to save channel settings.',
+        ephemeral: true
+      });
     }
   },
 };
