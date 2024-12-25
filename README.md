@@ -31,7 +31,7 @@ iResults is a Discord bot that automatically tracks and publishes iRacing race r
 
 If you want to use the already hosted version of iResults:
 
-1. Click this link to invite the bot: [Invite iResults Bot](https://discord.com/api/oauth2/authorize?client_id=1320895408305868881&permissions=2147485696&scope=bot%20applications.commands)
+1. Click this link to invite the bot: [Invite iResults Bot]([https://discord.com/api/oauth2/authorize?client_id=1320895408305868881&permissions=2147485696&scope=bot%20applications.commands](https://discord.com/api/oauth2/authorize?client_id=1320895408305868881&permissions=37080064&scope=bot%20applications.commands))
 2. Select your Discord server from the dropdown
 3. Click "Authorize"
 4. Set the results channel
