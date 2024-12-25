@@ -3,5 +3,4 @@
 package-lock.json
 data/iResults.db
 data/authCookie.ini
-data/config.json
 commands/config.json
