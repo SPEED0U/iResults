@@ -1,5 +1,6 @@
 const { PermissionsBitField } = require('discord.js');
 const { getDb } = require('../services/database');
+const { buildSuccessEmbed, buildErrorEmbed } = require('../utils/embedBuilder');
 
 module.exports = {
   name: 'setchannel',
@@ -13,10 +14,13 @@ module.exports = {
     },
   ],
   async execute(interaction) {
-    // Check if the user has administrator permissions
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await interaction.reply({
-        content: 'You need Administrator permissions to use this command.',
+        embeds: [buildErrorEmbed(
+          'Missing Permissions',
+          'You need Administrator permissions to use this command.',
+          interaction.client
+        )],
         ephemeral: true
       });
       return;
@@ -25,6 +29,32 @@ module.exports = {
     const guildId = interaction.guildId;
     const channel = interaction.options.getChannel('channel');
     const db = getDb();
+
+    // Check bot permissions in the selected channel
+    const permissions = channel.permissionsFor(interaction.client.user);
+    const missingPermissions = [];
+
+    if (!permissions.has(PermissionsBitField.Flags.ViewChannel)) {
+      missingPermissions.push('View Channel');
+    }
+    if (!permissions.has(PermissionsBitField.Flags.SendMessages)) {
+      missingPermissions.push('Send Messages');
+    }
+    if (!permissions.has(PermissionsBitField.Flags.EmbedLinks)) {
+      missingPermissions.push('Embed Links');
+    }
+
+    if (missingPermissions.length > 0) {
+      await interaction.reply({
+        embeds: [buildErrorEmbed(
+          'Missing Bot Permissions',
+          `The bot is missing the following permissions in ${channel}:\n• ${missingPermissions.join('\n• ')}\n\nPlease grant these permissions and try again.`,
+          interaction.client
+        )],
+        ephemeral: true
+      });
+      return;
+    }
 
     try {
       await new Promise((resolve, reject) => {
@@ -40,13 +70,20 @@ module.exports = {
       });
 
       await interaction.reply({
-        content: `${channel} is now set for automatic publication of race results.`,
-        ephemeral: true
+        embeds: [buildSuccessEmbed(
+          'Channel Set',
+          `${channel} is now set for automatic publication of race results.`,
+          interaction.client
+        )]
       });
     } catch (error) {
       console.error('Error saving channel settings:', error);
       await interaction.reply({
-        content: 'Failed to save channel settings.',
+        embeds: [buildErrorEmbed(
+          'Error',
+          'Failed to save channel settings.',
+          interaction.client
+        )],
         ephemeral: true
       });
     }

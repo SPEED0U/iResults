@@ -1,11 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { getGroupNameByLicenseId } = require('../services/iracing');
 
-/**
- * Converts a number to its ordinal form (1st, 2nd, 3rd, etc.)
- * @param {number} position - The position number to convert
- * @returns {string} The position with its ordinal suffix
- */
 function getOrdinalSuffix(position) {
   const j = position % 10;
   const k = position % 100;
@@ -15,25 +10,10 @@ function getOrdinalSuffix(position) {
   return `${position}th`;
 }
 
-/**
- * Formats a value for embed display by wrapping it in double backticks
- * @param {string} value - The value to format
- * @returns {string} Formatted value
- */
 function formatValue(value) {
   return `\`\`${value}\`\``;
 }
 
-/**
- * Builds an embed for race results
- * @param {Object} lastRace - The race data object
- * @param {string} displayName - Driver's display name
- * @param {string} carName - Name of the car used
- * @param {string} iRatingChangeFormatted - Formatted iRating change
- * @param {Object} client - Discord client object
- * @param {string} driver_id - Driver's iRacing ID
- * @returns {EmbedBuilder} Formatted embed for race results
- */
 function buildRaceResultsEmbed(lastRace, displayName, carName, iRatingChangeFormatted, client, driver_id) {
   const newSubLevel = (lastRace.new_sub_level / 100).toFixed(2);
   const subLevelChange = ((lastRace.new_sub_level - lastRace.old_sub_level) / 100).toFixed(2);
@@ -45,16 +25,16 @@ function buildRaceResultsEmbed(lastRace, displayName, carName, iRatingChangeForm
     .setColor('#c93838')
     .addFields(
       { name: 'Series', value: formatValue(lastRace.series_name), inline: false },
-      { name: '\t', value: '\t' }, // Spacer
+      { name: '\t', value: '\t' },
       { name: 'Track', value: formatValue(lastRace.track.track_name), inline: true },
       { name: 'Car', value: formatValue(carName), inline: true },
-      { name: '\t', value: '\t' }, // Spacer
+      { name: '\t', value: '\t' },
       { name: 'Start pos.', value: formatValue(getOrdinalSuffix(lastRace.start_position)), inline: true },
       { name: 'Finish pos.', value: formatValue(getOrdinalSuffix(lastRace.finish_position)), inline: true },
-      { name: '\t', value: '\t' }, // Spacer
+      { name: '\t', value: '\t' },
       { name: 'Laps completed', value: formatValue(lastRace.laps.toString()), inline: true },
       { name: 'Incidents', value: formatValue(lastRace.incidents.toString()), inline: true },
-      { name: '\t', value: '\t' }, // Spacer
+      { name: '\t', value: '\t' },
       { name: 'Strength of field', value: formatValue(lastRace.strength_of_field.toString()), inline: true },
       {
         name: 'iRating',
@@ -63,11 +43,11 @@ function buildRaceResultsEmbed(lastRace, displayName, carName, iRatingChangeForm
           : `${lastRace.newi_rating.toString()} (${iRatingChangeFormatted})`),
         inline: true
       },
-      { name: '\t', value: '\t' }, // Spacer
+      { name: '\t', value: '\t' },
       { name: 'Safety rating', value: formatValue(`${newSubLevel} (${subLevelChangeFormatted})`), inline: true },
       { name: 'License', value: formatValue(licenseGroupName), inline: true },
-      { name: '\t', value: '\t' }, // Spacer
-      { name: '\t', value: '\t' }, // Spacer
+      { name: '\t', value: '\t' },
+      { name: '\t', value: '\t' },
       { 
         name: '\t', 
         value: `[View on iRacing.com](https://members.iracing.com/membersite/member/EventResult.do?&subsessionid=${lastRace.subsession_id}&custid=${driver_id})`, 
@@ -78,13 +58,6 @@ function buildRaceResultsEmbed(lastRace, displayName, carName, iRatingChangeForm
     .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
 }
 
-/**
- * Builds an error embed
- * @param {string} title - Error title
- * @param {string} description - Error description
- * @param {Object} client - Discord client object
- * @returns {EmbedBuilder} Formatted error embed
- */
 function buildErrorEmbed(title, description, client) {
   return new EmbedBuilder()
     .setTitle(title)
@@ -94,13 +67,6 @@ function buildErrorEmbed(title, description, client) {
     .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
 }
 
-/**
- * Builds a success embed
- * @param {string} title - Success title
- * @param {string} description - Success description
- * @param {Object} client - Discord client object
- * @returns {EmbedBuilder} Formatted success embed
- */
 function buildSuccessEmbed(title, description, client) {
   return new EmbedBuilder()
     .setTitle(title)
@@ -110,12 +76,6 @@ function buildSuccessEmbed(title, description, client) {
     .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
 }
 
-/**
- * Builds a loading embed
- * @param {string} message - Loading message
- * @param {Object} client - Discord client object
- * @returns {EmbedBuilder} Formatted loading embed
- */
 function buildLoadingEmbed(message, client) {
   return new EmbedBuilder()
     .setTitle('Loading...')
@@ -125,11 +85,6 @@ function buildLoadingEmbed(message, client) {
     .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
 }
 
-/**
- * Builds a help embed
- * @param {Object} client - Discord client object
- * @returns {EmbedBuilder} Formatted help embed
- */
 function buildHelpEmbed(client) {
   return new EmbedBuilder()
     .setTitle('Command help')
@@ -149,6 +104,11 @@ function buildHelpEmbed(client) {
       { 
         name: '/trackmember', 
         value: '`/trackmember customer_id:<id>`\nTracks race results for a specified iRacing member ID.', 
+        inline: false 
+      },
+      { 
+        name: '/untrackmember', 
+        value: '`/untrackmember customer_id:<id>`\nStops tracking race results for a specified iRacing member ID.', 
         inline: false 
       },
       { 

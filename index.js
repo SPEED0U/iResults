@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { initializeDatabase } = require('./services/database');
+const { initializeDatabase, getDb } = require('./services/database');
 const { authenticateIRacing, fetchLicenseData } = require('./services/iracing');
 const { registerCommands } = require('./utils/commandsConfig');
 const { publishRaceResults } = require('./utils/helpers');
@@ -22,10 +22,33 @@ const client = new Client({
 });
 
 discordService.setClient(client);
-
-// Initialize services
 initializeDatabase();
 
+// Add guild deletion handler
+client.on('guildDelete', async (guild) => {
+  try {
+    const db = getDb();
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM tracked_data WHERE guild_id = ?', [guild.id], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM guild_settings WHERE guild_id = ?', [guild.id], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    
+    console.log(`[BOT] Cleaned up data for guild ${guild.id}`);
+  } catch (error) {
+    console.error(`[BOT] Error cleaning up guild ${guild.id} data:`, error);
+  }
+});
+
+// Rest of the code remains the same...
 async function getMemberCount() {
   let totalMembers = 0;
   
@@ -78,7 +101,6 @@ async function logShardStats() {
   }
 }
 
-// Command handler
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isCommand()) return;
 
@@ -94,7 +116,6 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// Bot initialization
 client.once('ready', async () => {
   const shardId = client.shard?.ids[0] ?? 0;
   console.log(`[SHD] Ready as ${client.user.tag} on Shard ${shardId}`);

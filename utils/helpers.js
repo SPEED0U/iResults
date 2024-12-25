@@ -1,6 +1,6 @@
 const { getDb } = require('../services/database');
 const { fetchLastRaceResults, fetchCarInfo, fetchMemberInfo } = require('../services/iracing');
-const { buildRaceResultsEmbed } = require('./embedBuilder');
+const { buildRaceResultsEmbed, buildErrorEmbed } = require('./embedBuilder');
 const discordService = require('../services/discord');
 
 const processDriverResults = async (guild_id, driver_id, last_race_id) => {
@@ -36,9 +36,31 @@ const processDriverResults = async (guild_id, driver_id, last_race_id) => {
 
         if (channelId) {
           const channel = client.channels.cache.get(channelId);
-          if (channel) {
-            await channel.send({ embeds: [embed] });
+          if (!channel) {
+            console.error(`Channel ${channelId} not found in guild ${guild_id}`);
+            return;
+          }
 
+          const permissions = channel.permissionsFor(client.user);
+          if (!permissions?.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])) {
+            console.error(`Missing required permissions in channel ${channelId} (${channel.name}) in guild ${guild_id}`);
+            
+            // Remove tracking entry due to permission issues
+            await new Promise((resolve, reject) => {
+              db.run(
+                `DELETE FROM tracked_data WHERE guild_id = ? AND driver_id = ?`,
+                [guild_id, driver_id],
+                (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                }
+              );
+            });
+            return;
+          }
+
+          try {
+            await channel.send({ embeds: [embed] });
             await new Promise((resolve, reject) => {
               db.run(
                 `UPDATE tracked_data SET last_race_id = ? WHERE driver_id = ?`,
@@ -49,6 +71,9 @@ const processDriverResults = async (guild_id, driver_id, last_race_id) => {
                 }
               );
             });
+          } catch (error) {
+            console.error(`Failed to send message in channel ${channelId}: ${error.message}`);
+            return;
           }
         }
       }
