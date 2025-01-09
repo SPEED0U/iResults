@@ -10,8 +10,26 @@ function getOrdinalSuffix(position) {
   return `${position}th`;
 }
 
-function formatValue(value) {
-  return `\`\`${value}\`\``;
+// Enhanced value formatting with emojis and better styling
+function formatValue(value, type = 'default') {
+  switch (type) {
+    case 'position':
+      return `🏁 ${value}`;
+    case 'track':
+      return `🏎️ ${value}`;
+    case 'car':
+      return `🚗 ${value}`;
+    case 'time':
+      return `⏱️ ${value}`;
+    case 'rating':
+      return `📊 ${value}`;
+    case 'license':
+      return `📜 ${value}`;
+    case 'incidents':
+      return `⚠️ ${value}`;
+    default:
+      return value;
+  }
 }
 
 function buildRaceResultsEmbed(lastRace, displayName, carName, iRatingChangeFormatted, client, driver_id) {
@@ -20,112 +38,157 @@ function buildRaceResultsEmbed(lastRace, displayName, carName, iRatingChangeForm
   const subLevelChangeFormatted = subLevelChange > 0 ? `+${subLevelChange}` : `${subLevelChange}`;
   const licenseGroupName = getGroupNameByLicenseId(lastRace.license_level);
 
-  return new EmbedBuilder()
-    .setTitle(`${displayName || 'Unknown Driver'} just finished a race`)
-    .setColor('#c93838')
-    .addFields(
-      { name: 'Series', value: formatValue(lastRace.series_name), inline: false },
-      { name: '\t', value: '\t' },
-      { name: 'Track', value: formatValue(lastRace.track.track_name), inline: true },
-      { name: 'Car', value: formatValue(carName), inline: true },
-      { name: '\t', value: '\t' },
-      { name: 'Start pos.', value: formatValue(getOrdinalSuffix(lastRace.start_position)), inline: true },
-      { name: 'Finish pos.', value: formatValue(getOrdinalSuffix(lastRace.finish_position)), inline: true },
-      { name: '\t', value: '\t' },
-      { name: 'Laps completed', value: formatValue(lastRace.laps.toString()), inline: true },
-      { name: 'Incidents', value: formatValue(lastRace.incidents.toString()), inline: true },
-      { name: '\t', value: '\t' },
-      { name: 'Strength of field', value: formatValue(lastRace.strength_of_field.toString()), inline: true },
-      {
-        name: 'iRating',
-        value: formatValue(lastRace.newi_rating === -1 
+  // Create sections with visual separators
+  const mainSection = [
+    { name: '🏆 Series', value: lastRace.series_name, inline: false },
+    { name: '\u200B', value: '\u200B', inline: false }
+  ];
+
+  const raceDetails = [
+    { name: '🏁 Track', value: formatValue(lastRace.track.track_name, 'track'), inline: true },
+    { name: '🚗 Car', value: formatValue(carName, 'car'), inline: true },
+    { name: '\u200B', value: '\u200B', inline: true }
+  ];
+
+  const positionInfo = [
+    { name: '📊 Starting Position', value: formatValue(getOrdinalSuffix(lastRace.start_position), 'position'), inline: true },
+    { name: '🏁 Finish Position', value: formatValue(getOrdinalSuffix(lastRace.finish_position), 'position'), inline: true },
+    { name: '\u200B', value: '\u200B', inline: true }
+  ];
+
+  const raceStats = [
+    { name: '⏱️ Laps Completed', value: formatValue(lastRace.laps.toString(), 'time'), inline: true },
+    { name: '⚠️ Incidents', value: formatValue(lastRace.incidents.toString(), 'incidents'), inline: true },
+    { name: '\u200B', value: '\u200B', inline: true }
+  ];
+
+  const ratings = [
+    { name: '📈 Strength of Field', value: formatValue(lastRace.strength_of_field.toString(), 'rating'), inline: true },
+    { 
+      name: '📊 iRating', 
+      value: formatValue(
+        lastRace.newi_rating === -1 
           ? 'Unranked' 
-          : `${lastRace.newi_rating.toString()} (${iRatingChangeFormatted})`),
-        inline: true
-      },
-      { name: '\t', value: '\t' },
-      { name: 'Safety rating', value: formatValue(`${newSubLevel} (${subLevelChangeFormatted})`), inline: true },
-      { name: 'License', value: formatValue(licenseGroupName), inline: true },
-      { name: '\t', value: '\t' },
-      { name: '\t', value: '\t' },
+          : `${lastRace.newi_rating} (${iRatingChangeFormatted})`, 
+        'rating'
+      ), 
+      inline: true 
+    },
+    { name: '\u200B', value: '\u200B', inline: true }
+  ];
+
+  const safetyInfo = [
+    { name: '🛡️ Safety Rating', value: formatValue(`${newSubLevel} (${subLevelChangeFormatted})`, 'rating'), inline: true },
+    { name: '📜 License', value: formatValue(licenseGroupName, 'license'), inline: true },
+    { name: '\u200B', value: '\u200B', inline: true }
+  ];
+
+  // Dynamic color based on position change
+  const positionImprovement = lastRace.start_position - lastRace.finish_position;
+  const embedColor = positionImprovement > 0 ? '#00ff00' : positionImprovement < 0 ? '#ff0000' : '#ffaa00';
+
+  return new EmbedBuilder()
+    .setTitle(`🏎️ Race Results: ${displayName || 'Unknown Driver'}`)
+    .setColor(embedColor)
+    .setDescription(`**Race Summary**\nParticipated in a race at ${lastRace.track.track_name}`)
+    .addFields([
+      ...mainSection,
+      ...raceDetails,
+      ...positionInfo,
+      ...raceStats,
+      ...ratings,
+      ...safetyInfo,
       { 
-        name: '\t', 
-        value: `[View on iRacing.com](https://members.iracing.com/membersite/member/EventResult.do?&subsessionid=${lastRace.subsession_id}&custid=${driver_id})`, 
-        inline: true 
+        name: '🔗 View on iRacing', 
+        value: `[Click to see detailed results](https://members.iracing.com/membersite/member/EventResult.do?&subsessionid=${lastRace.subsession_id}&custid=${driver_id})`,
+        inline: false 
       }
-    )
+    ])
     .setTimestamp(new Date(lastRace.session_start_time))
-    .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
+    .setFooter({ 
+      text: `iResults • ${new Date(lastRace.session_start_time).toLocaleDateString()}`, 
+      iconURL: client.user.displayAvatarURL() 
+    });
 }
 
 function buildErrorEmbed(title, description, client) {
   return new EmbedBuilder()
-    .setTitle(title)
+    .setTitle(`❌ ${title}`)
     .setDescription(description)
-    .setColor('#ff0000')
+    .setColor('#ff3333')
     .setTimestamp()
-    .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
+    .setFooter({ 
+      text: 'iResults • Error', 
+      iconURL: client.user.displayAvatarURL() 
+    });
 }
 
 function buildSuccessEmbed(title, description, client) {
   return new EmbedBuilder()
-    .setTitle(title)
+    .setTitle(`✅ ${title}`)
     .setDescription(description)
-    .setColor('#00ff00')
+    .setColor('#33cc33')
     .setTimestamp()
-    .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
+    .setFooter({ 
+      text: 'iResults • Success', 
+      iconURL: client.user.displayAvatarURL() 
+    });
 }
 
 function buildLoadingEmbed(message, client) {
   return new EmbedBuilder()
-    .setTitle('Loading...')
+    .setTitle('⏳ Loading...')
     .setDescription(message)
-    .setColor('#ffff00')
+    .setColor('#ffcc00')
     .setTimestamp()
-    .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
+    .setFooter({ 
+      text: 'iResults • Processing', 
+      iconURL: client.user.displayAvatarURL() 
+    });
 }
 
 function buildHelpEmbed(client) {
   return new EmbedBuilder()
-    .setTitle('Command help')
+    .setTitle('📚 iResults Command Guide')
     .setColor('#3498db')
-    .setDescription('Here is a list of available commands and how to use them.')
-    .addFields(
+    .setDescription('Welcome to iResults! Here are all the available commands:')
+    .addFields([
       { 
-        name: '/lastrace', 
-        value: '`/lastrace customer_id:<id>`\nFetches the last race results for a specific iRacing member.', 
+        name: '🔍 View Last Race', 
+        value: '`/lastrace customer_id:<id>`\nGet detailed results from a driver\'s most recent race.', 
         inline: false 
       },
       { 
-        name: '/setchannel', 
-        value: '`/setchannel channel:<#channel>`\nSets the specified channel for automatic race result publication.', 
+        name: '⚙️ Set Results Channel', 
+        value: '`/setchannel channel:<#channel>`\nConfigure where race results should be posted.\n*Requires Administrator permissions*', 
         inline: false 
       },
       { 
-        name: '/trackmember', 
-        value: '`/trackmember customer_id:<id>`\nTracks race results for a specified iRacing member ID.', 
+        name: '📊 Track Member', 
+        value: '`/trackmember customer_id:<id>`\nStart tracking a driver\'s race results.', 
         inline: false 
       },
       { 
-        name: '/untrackmember', 
-        value: '`/untrackmember customer_id:<id>`\nStops tracking race results for a specified iRacing member ID.', 
+        name: '🚫 Untrack Member', 
+        value: '`/untrackmember customer_id:<id>`\nStop tracking a driver\'s results.', 
         inline: false 
       },
       { 
-        name: '/help', 
-        value: 'Displays this help message.', 
+        name: '❓ Help', 
+        value: '`/help`\nDisplay this help message.', 
         inline: false 
-      }
-    )
-    .addFields(
+      },
       {
-        name: 'How to find your Customer ID on iRacing',
-        value: '1. Log in to your iRacing account.\n2. Click on the helmet at top-right.\n3. The Customer ID is displayed at the top of the window like `My Account: Customer ID #123456`.',
-        inline: false,
+        name: '🔑 Finding Your Customer ID',
+        value: '1. Log into iRacing\n2. Click your helmet icon (top-right)\n3. Look for `Customer ID #123456` at the top',
+        inline: false
       }
-    )
+    ])
     .setTimestamp()
-    .setFooter({ text: 'iResults', iconURL: client.user.displayAvatarURL() });
+    .setFooter({ 
+      text: 'iResults • Help Guide', 
+      iconURL: client.user.displayAvatarURL() 
+    });
 }
 
 module.exports = {
