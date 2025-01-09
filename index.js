@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { initializeDatabase, getDb } = require('./services/database');
+const db = require('./services/database');  // This now imports the MySQL service
 const { authenticateIRacing, fetchLicenseData } = require('./services/iracing');
 const { registerCommands } = require('./utils/commandsConfig');
 const { publishRaceResults } = require('./utils/helpers');
@@ -22,26 +22,11 @@ const client = new Client({
 });
 
 discordService.setClient(client);
-initializeDatabase();
 
 // Add guild deletion handler
 client.on('guildDelete', async (guild) => {
   try {
-    const db = getDb();
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM tracked_data WHERE guild_id = ?', [guild.id], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-    
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM guild_settings WHERE guild_id = ?', [guild.id], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-    
+    await db.removeGuild(guild.id);
     console.log(`[BOT] Cleaned up data for guild ${guild.id}`);
   } catch (error) {
     console.error(`[BOT] Error cleaning up guild ${guild.id} data:`, error);
