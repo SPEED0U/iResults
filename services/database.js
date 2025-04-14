@@ -17,14 +17,22 @@ class DatabaseService {
       charset: 'utf8mb4'
     });
 
-    // Test connection
-    this.testConnection();
+    this.initialize();
+  }
+
+  async initialize() {
+    try {
+      await this.testConnection();
+    } catch (error) {
+      console.error('[SQL] Initialization failed:', error);
+      throw error;
+    }
   }
 
   async testConnection() {
     try {
       const connection = await this.pool.getConnection();
-      console.log('[SQL] Database connection established successfully');
+      console.log('[SQL] Database connection established');
       connection.release();
     } catch (error) {
       console.error('[SQL] Database connection failed:', error);
@@ -33,11 +41,8 @@ class DatabaseService {
   }
 
   async query(sql, params) {
-    const start = Date.now();
     try {
       const [rows] = await this.pool.execute(sql, params);
-      const duration = Date.now() - start;
-      console.log('[SQL] Executed query', { sql, duration, rows: rows?.length });
       return rows;
     } catch (error) {
       console.error('[SQL] Query error:', error);
@@ -50,6 +55,8 @@ class DatabaseService {
   }
 
   async addTrackedDriver(guildId, channelId, driverId) {
+    await this.setGuildChannel(guildId, channelId);
+
     const sql = `
       INSERT INTO tracked_data (guild_id, channel_id, driver_id)
       VALUES (?, ?, ?)
@@ -71,7 +78,7 @@ class DatabaseService {
   }
 
   async getGuildSettings(guildId) {
-    const sql = 'SELECT * FROM guild_settings WHERE guild_id = ?';
+    const sql = 'SELECT * FROM guild_settings WHERE `guild_id` = ?';
     const results = await this.query(sql, [guildId]);
     return results[0];
   }
@@ -87,27 +94,8 @@ class DatabaseService {
   }
 
   async removeGuild(guildId) {
-    const connection = await this.pool.getConnection();
-    try {
-      await connection.beginTransaction();
-
-      await connection.execute(
-        'DELETE FROM tracked_data WHERE guild_id = ?',
-        [guildId]
-      );
-      
-      await connection.execute(
-        'DELETE FROM guild_settings WHERE guild_id = ?',
-        [guildId]
-      );
-
-      await connection.commit();
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
-    }
+    const sql = 'DELETE FROM guild_settings WHERE `guild_id` = ?';
+    return this.query(sql, [guildId]);
   }
 
   async close() {

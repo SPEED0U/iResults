@@ -1,4 +1,4 @@
-const { getDb } = require('../services/database');
+const db = require('../services/database');
 const { fetchLastRaceResults, fetchCarInfo, fetchMemberInfo } = require('../services/iracing');
 const { buildRaceResultsEmbed, buildErrorEmbed } = require('./embedBuilder');
 const discordService = require('../services/discord');
@@ -26,13 +26,8 @@ const processDriverResults = async (guild_id, driver_id, last_race_id) => {
 
         const embed = buildRaceResultsEmbed(lastRace, displayName, carName, iRatingChangeFormatted, client, driver_id);
 
-        const db = getDb();
-        const channelId = await new Promise((resolve, reject) => {
-          db.get(`SELECT channel_id FROM guild_settings WHERE guild_id = ?`, [guild_id], (err, row) => {
-            if (err) reject(err);
-            else resolve(row?.channel_id);
-          });
-        });
+        const settings = await db.getGuildSettings(guild_id);
+        const channelId = settings?.channel_id;
 
         if (channelId) {
           const channel = client.channels.cache.get(channelId);
@@ -46,31 +41,13 @@ const processDriverResults = async (guild_id, driver_id, last_race_id) => {
             console.error(`Missing required permissions in channel ${channelId} (${channel.name}) in guild ${guild_id}`);
             
             // Remove tracking entry due to permission issues
-            await new Promise((resolve, reject) => {
-              db.run(
-                `DELETE FROM tracked_data WHERE guild_id = ? AND driver_id = ?`,
-                [guild_id, driver_id],
-                (err) => {
-                  if (err) reject(err);
-                  else resolve();
-                }
-              );
-            });
+            await db.removeTrackedDriver(guild_id, driver_id);
             return;
           }
 
           try {
             await channel.send({ embeds: [embed] });
-            await new Promise((resolve, reject) => {
-              db.run(
-                `UPDATE tracked_data SET last_race_id = ? WHERE driver_id = ?`,
-                [lastRace.subsession_id, driver_id],
-                (err) => {
-                  if (err) reject(err);
-                  else resolve();
-                }
-              );
-            });
+            await db.updateLastRaceId(driver_id, lastRace.subsession_id);
           } catch (error) {
             console.error(`Failed to send message in channel ${channelId}: ${error.message}`);
             return;
@@ -85,13 +62,7 @@ const processDriverResults = async (guild_id, driver_id, last_race_id) => {
 
 async function publishRaceResults() {
   try {
-    const db = getDb();
-    const rows = await new Promise((resolve, reject) => {
-      db.all(`SELECT * FROM tracked_data`, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+    const rows = await db.getTrackedDrivers();
 
     for (const row of rows) {
       const { guild_id, driver_id, last_race_id } = row;

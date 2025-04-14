@@ -1,4 +1,4 @@
-const { getDb } = require('../services/database');
+const db = require('../services/database');
 const { buildSuccessEmbed, buildErrorEmbed } = require('../utils/embedBuilder');
 
 module.exports = {
@@ -15,7 +15,6 @@ module.exports = {
   async execute(interaction) {
     const guildId = interaction.guildId;
     const customer_id = interaction.options.getString('customer_id');
-    const db = getDb();
 
     if (!customer_id) {
       const embed = buildErrorEmbed(
@@ -29,18 +28,12 @@ module.exports = {
 
     try {
       // Check if member is being tracked
-      const existingEntry = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT * FROM tracked_data WHERE guild_id = ? AND driver_id = ?',
-          [guildId, customer_id],
-          (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          }
-        );
-      });
+      const existingEntry = await db.query(
+        'SELECT * FROM tracked_data WHERE guild_id = ? AND driver_id = ?',
+        [guildId, customer_id]
+      );
 
-      if (!existingEntry) {
+      if (existingEntry.length === 0) {
         const embed = buildErrorEmbed(
           'Not Tracked',
           `Member ID \`${customer_id}\` is not being tracked in this server.`,
@@ -51,16 +44,7 @@ module.exports = {
       }
 
       // Remove tracking entry
-      await new Promise((resolve, reject) => {
-        db.run(
-          'DELETE FROM tracked_data WHERE guild_id = ? AND driver_id = ?',
-          [guildId, customer_id],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
+      await db.removeTrackedDriver(guildId, customer_id);
 
       const embed = buildSuccessEmbed(
         'Member Untracked',

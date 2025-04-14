@@ -9,7 +9,7 @@ const config = require('./data/config.json');
 // Check if this process is being run as a shard
 if (!process.env.SHARDING_MANAGER) {
   console.log('[SHD] Starting bot with sharding...');
-  require('./shardManager');
+  require('./services/shardManager.js');
   return;
 }
 

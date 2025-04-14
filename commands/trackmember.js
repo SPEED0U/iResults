@@ -1,4 +1,4 @@
-const { getDb } = require('../services/database');
+const db = require('../services/database');
 const { buildSuccessEmbed, buildErrorEmbed } = require('../utils/embedBuilder');
 
 module.exports = {
@@ -16,7 +16,6 @@ module.exports = {
     const guildId = interaction.guildId;
     const channelId = interaction.channelId;
     const customer_id = interaction.options.getString('customer_id');
-    const db = getDb();
 
     if (!customer_id) {
       const embed = buildErrorEmbed(
@@ -30,18 +29,12 @@ module.exports = {
 
     try {
       // Check if member is already tracked in this guild
-      const existingEntry = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT * FROM tracked_data WHERE guild_id = ? AND driver_id = ?',
-          [guildId, customer_id],
-          (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          }
-        );
-      });
+      const existingEntry = await db.query(
+        'SELECT * FROM tracked_data WHERE guild_id = ? AND driver_id = ?',
+        [guildId, customer_id]
+      );
 
-      if (existingEntry) {
+      if (existingEntry.length > 0) {
         const embed = buildErrorEmbed(
           'Already Tracked',
           `Member ID \`${customer_id}\` is already being tracked in this server.`,
@@ -52,16 +45,7 @@ module.exports = {
       }
 
       // Add new tracking entry
-      await new Promise((resolve, reject) => {
-        db.run(
-          `INSERT INTO tracked_data (guild_id, channel_id, driver_id) VALUES (?, ?, ?)`,
-          [guildId, channelId, customer_id],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
+      await db.addTrackedDriver(guildId, channelId, customer_id);
 
       const embed = buildSuccessEmbed(
         'Member Tracked',

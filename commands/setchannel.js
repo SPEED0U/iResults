@@ -1,5 +1,5 @@
 const { PermissionsBitField } = require('discord.js');
-const { getDb } = require('../services/database');
+const db = require('../services/database');
 const { buildSuccessEmbed, buildErrorEmbed } = require('../utils/embedBuilder');
 
 module.exports = {
@@ -28,7 +28,6 @@ module.exports = {
 
     const guildId = interaction.guildId;
     const channel = interaction.options.getChannel('channel');
-    const db = getDb();
 
     // Check bot permissions in the selected channel
     const permissions = channel.permissionsFor(interaction.client.user);
@@ -57,17 +56,7 @@ module.exports = {
     }
 
     try {
-      await new Promise((resolve, reject) => {
-        db.run(
-          `INSERT INTO guild_settings (guild_id, channel_id) VALUES (?, ?)
-           ON CONFLICT(guild_id) DO UPDATE SET channel_id=excluded.channel_id`,
-          [guildId, channel.id],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
+      await db.setGuildChannel(guildId, channel.id);
 
       await interaction.reply({
         embeds: [buildSuccessEmbed(

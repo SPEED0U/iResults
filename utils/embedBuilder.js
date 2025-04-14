@@ -10,185 +10,143 @@ function getOrdinalSuffix(position) {
   return `${position}th`;
 }
 
-// Enhanced value formatting with emojis and better styling
-function formatValue(value, type = 'default') {
-  switch (type) {
-    case 'position':
-      return `🏁 ${value}`;
-    case 'track':
-      return `🏎️ ${value}`;
-    case 'car':
-      return `🚗 ${value}`;
-    case 'time':
-      return `⏱️ ${value}`;
-    case 'rating':
-      return `📊 ${value}`;
-    case 'license':
-      return `📜 ${value}`;
-    case 'incidents':
-      return `⚠️ ${value}`;
-    default:
-      return value;
-  }
+// Helper function to create empty field spacer
+function spacer() {
+  return { name: '** **', value: '** **', inline: false };
 }
 
 function buildRaceResultsEmbed(lastRace, displayName, carName, iRatingChangeFormatted, client, driver_id) {
+  // Calculate safety rating changes
   const newSubLevel = (lastRace.new_sub_level / 100).toFixed(2);
   const subLevelChange = ((lastRace.new_sub_level - lastRace.old_sub_level) / 100).toFixed(2);
-  const subLevelChangeFormatted = subLevelChange > 0 ? `+${subLevelChange}` : `${subLevelChange}`;
-  const licenseGroupName = getGroupNameByLicenseId(lastRace.license_level);
+  const subLevelChangeFormatted = subLevelChange >= 0 ? `+${subLevelChange}` : subLevelChange;
+  
+  // Calculate position change
+  const positionChange = lastRace.finish_position - lastRace.start_position;
+  const positionChangeText = positionChange > 0 ? `Lost pos. » **\`${positionChange}\`**` : 
+                            positionChange < 0 ? `Gained pos. » **\`${Math.abs(positionChange)}\`**` : 
+                            `No position change`;
 
-  // Create sections with visual separators
-  const mainSection = [
-    { name: '🏆 Series', value: lastRace.series_name, inline: false },
-    { name: '\u200B', value: '\u200B', inline: false }
-  ];
+  // Calculate color based on iRating change
+  const iRatingChange = lastRace.newi_rating - lastRace.oldi_rating;
+  const embedColor = lastRace.newi_rating === -1 ? "#22bb33" : // Green for unranked
+                    iRatingChange >= 0 ? "#22bb33" : // Green for positive/no change
+                    "#bb2222"; // Red for negative change
 
-  const raceDetails = [
-    { name: '🏁 Track', value: formatValue(lastRace.track.track_name, 'track'), inline: true },
-    { name: '🚗 Car', value: formatValue(carName, 'car'), inline: true },
-    { name: '\u200B', value: '\u200B', inline: true }
-  ];
-
-  const positionInfo = [
-    { name: '📊 Starting Position', value: formatValue(getOrdinalSuffix(lastRace.start_position), 'position'), inline: true },
-    { name: '🏁 Finish Position', value: formatValue(getOrdinalSuffix(lastRace.finish_position), 'position'), inline: true },
-    { name: '\u200B', value: '\u200B', inline: true }
-  ];
-
-  const raceStats = [
-    { name: '⏱️ Laps Completed', value: formatValue(lastRace.laps.toString(), 'time'), inline: true },
-    { name: '⚠️ Incidents', value: formatValue(lastRace.incidents.toString(), 'incidents'), inline: true },
-    { name: '\u200B', value: '\u200B', inline: true }
-  ];
-
-  const ratings = [
-    { name: '📈 Strength of Field', value: formatValue(lastRace.strength_of_field.toString(), 'rating'), inline: true },
-    { 
-      name: '📊 iRating', 
-      value: formatValue(
-        lastRace.newi_rating === -1 
-          ? 'Unranked' 
-          : `${lastRace.newi_rating} (${iRatingChangeFormatted})`, 
-        'rating'
-      ), 
-      inline: true 
-    },
-    { name: '\u200B', value: '\u200B', inline: true }
-  ];
-
-  const safetyInfo = [
-    { name: '🛡️ Safety Rating', value: formatValue(`${newSubLevel} (${subLevelChangeFormatted})`, 'rating'), inline: true },
-    { name: '📜 License', value: formatValue(licenseGroupName, 'license'), inline: true },
-    { name: '\u200B', value: '\u200B', inline: true }
-  ];
-
-  // Dynamic color based on position change
-  const positionImprovement = lastRace.start_position - lastRace.finish_position;
-  const embedColor = positionImprovement > 0 ? '#00ff00' : positionImprovement < 0 ? '#ff0000' : '#ffaa00';
-
-  return new EmbedBuilder()
-    .setTitle(`🏎️ Race Results: ${displayName || 'Unknown Driver'}`)
-    .setColor(embedColor)
-    .setDescription(`**Race Summary**\nParticipated in a race at ${lastRace.track.track_name}`)
+  const embed = new EmbedBuilder()
+    .setAuthor({
+      name: `• ${displayName}'s race results`,
+      iconURL: "https://cdn.discordapp.com/attachments/954001140519944193/1327010280336523406/helmet.png?ex=67818221&is=678030a1&hm=f90ea5b9acc18736062aaaebae61a6041de3c09af7bcedcc918c3036e9b60dce&",
+    })
+    .setDescription("** **")
     .addFields([
-      ...mainSection,
-      ...raceDetails,
-      ...positionInfo,
-      ...raceStats,
-      ...ratings,
-      ...safetyInfo,
-      { 
-        name: '🔗 View on iRacing', 
-        value: `[Click to see detailed results](https://members.iracing.com/membersite/member/EventResult.do?&subsessionid=${lastRace.subsession_id}&custid=${driver_id})`,
-        inline: false 
+      {
+        name: "📋 • __Details__",
+        value: `Series » **\`${lastRace.series_name}\`**\nTrack » **\`${lastRace.track.track_name}\`**\nCar » **\`${carName}\`**\n** **`,
+        inline: false
+      },
+      spacer(),
+      {
+        name: "📊 • __Position__",
+        value: `Start » **\`${getOrdinalSuffix(lastRace.start_position)}\`**\nFinish » **\`${getOrdinalSuffix(lastRace.finish_position)}\`**\n${positionChangeText}\n** **`,
+        inline: false
+      },
+      spacer(),
+      {
+        name: "📈 • __Statistics__",
+        value: `Laps » **\`${lastRace.laps}\`**\nIncidents » **\`${lastRace.incidents}\`**\nSOF » **\`${lastRace.strength_of_field}\`**\n** **`,
+        inline: false
+      },
+      spacer(),
+      {
+        name: "🏆 • __Ratings__",
+        value: `iRating » **\`${lastRace.newi_rating === -1 ? 'Unranked' : `${lastRace.newi_rating} (${iRatingChangeFormatted})`}\`**\nSafety » **\`${newSubLevel} (${subLevelChangeFormatted})\`**\nLicense » **\`${getGroupNameByLicenseId(lastRace.license_level)}\`**\n** **`,
+        inline: false
+      },
+      spacer(),
+      {
+        name: "🔗 • __Link__",
+        value: `[View on iRacing.com](https://members.iracing.com/membersite/member/EventResult.do?&subsessionid=${lastRace.subsession_id}&custid=${driver_id})\n** **`,
+        inline: false
       }
     ])
-    .setTimestamp(new Date(lastRace.session_start_time))
-    .setFooter({ 
-      text: `iResults • ${new Date(lastRace.session_start_time).toLocaleDateString()}`, 
-      iconURL: client.user.displayAvatarURL() 
-    });
+    .setImage("https://media.discordapp.net/attachments/954001140519944193/1327009050394755173/banner.png?ex=678180fc&is=67802f7c&hm=02ccf801b2f2732302919404dba5955707194686f807b82c1a8f7a4e18befe1d&=&format=webp&quality=lossless")
+    .setColor(embedColor)
+    .setFooter({
+      text: "iResults • Race completed",
+    })
+    .setTimestamp(new Date(lastRace.session_start_time));
+
+  return embed;
 }
 
+// Rest of the code remains the same...
 function buildErrorEmbed(title, description, client) {
   return new EmbedBuilder()
-    .setTitle(`❌ ${title}`)
+    .setTitle(title)
     .setDescription(description)
-    .setColor('#ff3333')
-    .setTimestamp()
-    .setFooter({ 
-      text: 'iResults • Error', 
-      iconURL: client.user.displayAvatarURL() 
-    });
+    .setColor("#ff3333")
+    .setFooter({
+      text: "iResults • Error",
+    })
+    .setTimestamp();
 }
 
 function buildSuccessEmbed(title, description, client) {
   return new EmbedBuilder()
-    .setTitle(`✅ ${title}`)
+    .setTitle(title)
     .setDescription(description)
-    .setColor('#33cc33')
-    .setTimestamp()
-    .setFooter({ 
-      text: 'iResults • Success', 
-      iconURL: client.user.displayAvatarURL() 
-    });
+    .setColor("#00b0f4")
+    .setFooter({
+      text: "iResults • Success",
+    })
+    .setTimestamp();
 }
 
 function buildLoadingEmbed(message, client) {
   return new EmbedBuilder()
-    .setTitle('⏳ Loading...')
+    .setTitle("Processing request...")
     .setDescription(message)
-    .setColor('#ffcc00')
-    .setTimestamp()
-    .setFooter({ 
-      text: 'iResults • Processing', 
-      iconURL: client.user.displayAvatarURL() 
-    });
+    .setColor("#00b0f4")
+    .setFooter({
+      text: "iResults • Loading",
+    })
+    .setTimestamp();
 }
 
 function buildHelpEmbed(client) {
   return new EmbedBuilder()
-    .setTitle('📚 iResults Command Guide')
-    .setColor('#3498db')
-    .setDescription('Welcome to iResults! Here are all the available commands:')
+    .setTitle("iResults Command Guide")
     .addFields([
-      { 
-        name: '🔍 View Last Race', 
-        value: '`/lastrace customer_id:<id>`\nGet detailed results from a driver\'s most recent race.', 
-        inline: false 
-      },
-      { 
-        name: '⚙️ Set Results Channel', 
-        value: '`/setchannel channel:<#channel>`\nConfigure where race results should be posted.\n*Requires Administrator permissions*', 
-        inline: false 
-      },
-      { 
-        name: '📊 Track Member', 
-        value: '`/trackmember customer_id:<id>`\nStart tracking a driver\'s race results.', 
-        inline: false 
-      },
-      { 
-        name: '🚫 Untrack Member', 
-        value: '`/untrackmember customer_id:<id>`\nStop tracking a driver\'s results.', 
-        inline: false 
-      },
-      { 
-        name: '❓ Help', 
-        value: '`/help`\nDisplay this help message.', 
-        inline: false 
-      },
       {
-        name: '🔑 Finding Your Customer ID',
-        value: '1. Log into iRacing\n2. Click your helmet icon (top-right)\n3. Look for `Customer ID #123456` at the top',
+        name: "📋• __Available Commands__",
+        value: "**/lastrace** `customer_id:<id>`\nView race results for a specific driver\n** **",
+        inline: false
+      },
+      spacer(),
+      {
+        name: "📊• __Track Commands__",
+        value: "**/trackmember** `customer_id:<id>`\nStart tracking a driver's race results\n\n**/untrackmember** `customer_id:<id>`\nStop tracking a driver's results\n** **",
+        inline: false
+      },
+      spacer(),
+      {
+        name: "⚙️• __Settings__",
+        value: "**/setchannel** `channel:<#channel>`\nSet channel for race updates (Admin only)\n** **",
+        inline: false
+      },
+      spacer(),
+      {
+        name: "❓• __Finding Your Customer ID__",
+        value: "1. Log into iRacing\n2. Click your helmet icon (top-right)\n3. Find your Customer ID (#123456)\n** **",
         inline: false
       }
     ])
-    .setTimestamp()
-    .setFooter({ 
-      text: 'iResults • Help Guide', 
-      iconURL: client.user.displayAvatarURL() 
-    });
+    .setColor("#00b0f4")
+    .setFooter({
+      text: "iResults • Help",
+    })
+    .setTimestamp();
 }
 
 module.exports = {
@@ -196,7 +154,5 @@ module.exports = {
   buildErrorEmbed,
   buildSuccessEmbed,
   buildLoadingEmbed,
-  buildHelpEmbed,
-  formatValue,
-  getOrdinalSuffix
+  buildHelpEmbed
 };
