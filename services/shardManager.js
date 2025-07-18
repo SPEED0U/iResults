@@ -5,12 +5,13 @@ async function startBot() {
         // Initialize sharding
         await discordService.initialize('auto');
 
-        // Optional: Log total stats every hour
+        // Optimisation : Réduire la fréquence des logs de stats de 1 heure à 6 heures
+        // pour réduire la consommation CPU
         setInterval(async () => {
             const totalGuilds = await discordService.getTotalGuilds();
             const totalUsers = await discordService.getTotalUsers();
             console.log(`[Stats] Total guilds: ${totalGuilds}, Total users: ${totalUsers}`);
-        }, 60 * 60 * 1000);
+        }, 6 * 60 * 60 * 1000); // 6 heures au lieu de 1 heure
 
     } catch (error) {
         console.error('Failed to start bot:', error);

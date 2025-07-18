@@ -2,9 +2,10 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const db = require('./services/database');  // This now imports the MySQL service
 const { authenticateIRacing, fetchLicenseData } = require('./services/iracing');
 const { registerCommands } = require('./utils/commandsConfig');
-const { publishRaceResults } = require('./utils/helpers');
+const { publishRaceResults, scheduleCleanup, scheduleStatusUpdate } = require('./utils/helpers');
 const discordService = require('./services/discord');
 const config = require('./data/config.json');
+const { INTERVALS, LOG_MESSAGES } = require('./utils/performance');
 
 // Check if this process is being run as a shard
 if (!process.env.SHARDING_MANAGER) {
@@ -12,6 +13,8 @@ if (!process.env.SHARDING_MANAGER) {
   require('./services/shardManager.js');
   return;
 }
+
+console.log(LOG_MESSAGES.PERFORMANCE_OPTIMIZED);
 
 const client = new Client({
   intents: [
@@ -108,16 +111,29 @@ client.once('ready', async () => {
   await registerCommands(client);
   await fetchLicenseData();
 
+  // Démarrer le nettoyage automatique des channels invalides
+  setTimeout(async () => {
+    await scheduleCleanup();
+  }, 5000); // Attendre 5 secondes après le démarrage
+
+  // Démarrer la mise à jour du statut Discord
+  setTimeout(async () => {
+    await scheduleStatusUpdate();
+  }, 10000); // Attendre 10 secondes après le démarrage
+
+  // Réduire la fréquence des logs de stats de 5 minutes à 30 minutes
   setTimeout(async () => {
     await logShardStats();
     
     setInterval(async () => {
       await logShardStats();
-    }, 5 * 60 * 1000);
+    }, INTERVALS.SHARD_STATS_LOG);
   }, 1000);
 });
 
+// Optimisation : Augmenter l'intervalle de vérification des résultats de course
+// de 1 minute à 5 minutes pour réduire la charge CPU
 const shardCount = client.shard?.count ?? 1;
-setInterval(publishRaceResults, (1 * 60 * 1000) * shardCount);
+setInterval(publishRaceResults, INTERVALS.RACE_RESULTS_CHECK * shardCount);
 
 client.login(config.token);

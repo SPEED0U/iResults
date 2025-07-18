@@ -10,6 +10,9 @@ let iracingSession = {
 };
 
 let licenseDataCache = null;
+// Optimisation : Ajouter un cache pour les données de voiture
+let carDataCache = null;
+let carDataCacheExpiration = null;
 
 async function authenticateIRacing() {
   try {
@@ -75,6 +78,11 @@ async function fetchLicenseData() {
 
 async function fetchCarInfo() {
   try {
+    // Optimisation : Utiliser le cache si disponible et valide (expire après 24 heures)
+    if (carDataCache && carDataCacheExpiration && Date.now() < carDataCacheExpiration) {
+      return carDataCache;
+    }
+
     if (!iracingSession.cookie || Date.now() > iracingSession.expiration) {
       console.log('[API] Session expired or missing. Reauthenticating to iRacing.');
       await authenticateIRacing();
@@ -85,12 +93,20 @@ async function fetchCarInfo() {
       { headers: { Cookie: iracingSession.cookie } }
     );
 
+    let data;
     if (response.data.link) {
       const linkResponse = await axios.get(response.data.link);
-      return linkResponse.data;
+      data = linkResponse.data;
+    } else {
+      data = response.data;
     }
 
-    return response.data;
+    // Mettre en cache les données de voiture pour 24 heures
+    carDataCache = data;
+    carDataCacheExpiration = Date.now() + (24 * 60 * 60 * 1000);
+    console.log('[API] Car data cached for 24 hours');
+
+    return data;
   } catch (error) {
     if (error.response?.status === 401) {
       console.log('[API] Unauthorized. Reauthenticating to iRacing.');

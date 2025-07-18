@@ -11,10 +11,14 @@ class DatabaseService {
       database: process.env.MYSQL_DATABASE,
       port: process.env.MYSQL_PORT || 3306,
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: 5, // Réduire le nombre de connexions simultanées
       queueLimit: 0,
       timezone: '+00:00',
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      // Optimisations pour réduire la consommation CPU (options valides pour MySQL2)
+      // acquireTimeout et timeout ne sont pas valides pour les pools MySQL2
+      idleTimeout: 300000, // 5 minutes - temps avant fermeture des connexions inactives
+      maxIdle: 3 // Nombre maximum de connexions inactives
     });
 
     this.initialize();
@@ -64,12 +68,21 @@ class DatabaseService {
         channel_id = VALUES(channel_id)
     `;
     const result = await this.query(sql, [guildId, channelId, driverId]);
+    
+    // Déclencher la mise à jour du statut Discord
+    this.triggerStatusUpdate();
+    
     return result.insertId;
   }
 
   async removeTrackedDriver(guildId, driverId) {
     const sql = 'DELETE FROM tracked_data WHERE guild_id = ? AND driver_id = ?';
-    return this.query(sql, [guildId, driverId]);
+    const result = await this.query(sql, [guildId, driverId]);
+    
+    // Déclencher la mise à jour du statut Discord
+    this.triggerStatusUpdate();
+    
+    return result;
   }
 
   async updateLastRaceId(driverId, lastRaceId) {
@@ -81,6 +94,11 @@ class DatabaseService {
     const sql = 'SELECT * FROM guild_settings WHERE `guild_id` = ?';
     const results = await this.query(sql, [guildId]);
     return results[0];
+  }
+
+  async getAllGuildSettings() {
+    const sql = 'SELECT * FROM guild_settings';
+    return this.query(sql);
   }
 
   async setGuildChannel(guildId, channelId) {
@@ -95,7 +113,29 @@ class DatabaseService {
 
   async removeGuild(guildId) {
     const sql = 'DELETE FROM guild_settings WHERE `guild_id` = ?';
-    return this.query(sql, [guildId]);
+    const result = await this.query(sql, [guildId]);
+    
+    // Déclencher la mise à jour du statut Discord
+    this.triggerStatusUpdate();
+    
+    return result;
+  }
+
+  // Fonction pour déclencher la mise à jour du statut Discord
+  triggerStatusUpdate() {
+    // Utiliser un timeout pour éviter les appels trop fréquents
+    if (this.statusUpdateTimeout) {
+      clearTimeout(this.statusUpdateTimeout);
+    }
+    
+    this.statusUpdateTimeout = setTimeout(async () => {
+      try {
+        const { updateDiscordStatus } = require('../utils/helpers');
+        await updateDiscordStatus();
+      } catch (error) {
+        console.error('[STATUS] Error triggering status update:', error);
+      }
+    }, 2000); // Délai de 2 secondes pour éviter les appels multiples
   }
 
   async close() {
